@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-Hant-TW" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>電子書朗讀</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- 書架 -->
+<div id="library">
+  <header class="bar">
+    <h1>我的書架</h1>
+    <label class="btn primary" for="fileInput">＋ 匯入 TXT</label>
+    <input id="fileInput" type="file" accept=".txt,text/plain" multiple hidden>
+  </header>
+  <div id="bookList"></div>
+  <p id="emptyHint" class="hint" hidden>還沒有書。按右上角「＋ 匯入 TXT」，從手機裡選擇小說檔案。</p>
+  <p id="storageInfo" class="hint small"></p>
+</div>
+
+<!-- 閱讀畫面 -->
+<div id="reader" hidden>
+  <header id="topbar" class="bar">
+    <button id="backBtn" class="icon" aria-label="回書架">←</button>
+    <div class="titles">
+      <div id="chTitle" class="ch-title"></div>
+      <div id="progress" class="small"></div>
+    </div>
+    <button id="tocBtn" class="icon" aria-label="目錄">☰</button>
+    <button id="setBtn" class="icon" aria-label="設定">Aa</button>
+  </header>
+
+  <main id="content"></main>
+
+  <footer id="player" class="bar">
+    <button id="prevBtn" class="icon" aria-label="上一段">⏮</button>
+    <button id="playBtn" class="play" aria-label="朗讀">▶</button>
+    <button id="nextBtn" class="icon" aria-label="下一段">⏭</button>
+    <button id="speedBtn" class="pill" aria-label="語速">1x</button>
+    <button id="carBtn" class="pill" aria-label="開車模式">🚗 開車</button>
+  </footer>
+
+  <button id="pop" class="pop" hidden>▶ 從這句朗讀</button>
+</div>
+
+<!-- 目錄 -->
+<div id="tocSheet" class="sheet" hidden>
+  <div class="sheet-body">
+    <div class="sheet-head"><b>目錄</b><button class="icon close">✕</button></div>
+    <ol id="tocList"></ol>
+  </div>
+</div>
+
+<!-- 設定 -->
+<div id="setSheet" class="sheet" hidden>
+  <div class="sheet-body">
+    <div class="sheet-head"><b>設定</b><button class="icon close">✕</button></div>
+
+    <div class="row"><span>文字大小</span>
+      <div class="stepper"><button data-step="fontSize" data-d="-1">A−</button><output id="fsOut"></output><button data-step="fontSize" data-d="1">A＋</button></div>
+    </div>
+    <div class="row"><span>行距</span>
+      <div class="stepper"><button data-step="lineHeight" data-d="-0.1">−</button><output id="lhOut"></output><button data-step="lineHeight" data-d="0.1">＋</button></div>
+    </div>
+    <div class="row"><span>字型</span>
+      <div class="seg" data-key="font"><button data-v="sans">黑體</button><button data-v="serif">明體</button></div>
+    </div>
+    <div class="row"><span>主題</span>
+      <div class="seg" data-key="theme"><button data-v="light">淺色</button><button data-v="sepia">護眼</button><button data-v="dark">深色</button></div>
+    </div>
+    <div class="row col"><span>朗讀語速</span>
+      <div class="seg wrap" id="speedSeg"></div>
+    </div>
+    <div class="row col"><span>朗讀聲音</span>
+      <div class="voice-row"><select id="voiceSel"></select><button id="testVoice" class="btn">試聽</button></div>
+    </div>
+    <div class="row col"><span>睡眠定時 <small id="sleepInfo"></small></span>
+      <div class="seg wrap" id="sleepSeg">
+        <button data-v="off">關閉</button><button data-v="15">15 分</button><button data-v="30">30 分</button><button data-v="60">60 分</button><button data-v="chapter">本章結束</button>
+      </div>
+    </div>
+    <label class="row check"><span>背景播放輔助<br><small>關螢幕後朗讀中斷時可試著開關這個選項</small></span><input type="checkbox" id="keepAlive"></label>
+  </div>
+</div>
+
+<!-- 開車模式 -->
+<div id="car" hidden>
+  <div class="car-info">
+    <div id="carBook" class="small"></div>
+    <div id="carCh"></div>
+    <div id="carProg" class="small"></div>
+  </div>
+  <button id="carPlay" class="car-play">▶</button>
+  <div class="car-row">
+    <button id="carPrev">⏮<small>上一段</small></button>
+    <button id="carSpeed">1x<small>語速</small></button>
+    <button id="carNext">⏭<small>下一段</small></button>
+  </div>
+  <button id="carExit" class="car-exit">離開開車模式</button>
+</div>
+
+<div id="toast" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>

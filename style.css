@@ -1,0 +1,114 @@
+:root {
+  --bg: #ffffff; --fg: #222; --muted: #888; --bar: #f6f6f6; --line: #ddd;
+  --hl: #ffe9a8; --accent: #2f6f5e; --accent-fg: #fff;
+  --fs: 20px; --lh: 1.8;
+  --top: 52px; --bottom: 64px;
+}
+:root[data-theme="sepia"] { --bg: #f4ecd8; --fg: #4b3a2a; --muted: #8b7a66; --bar: #ebe0c6; --line: #d6c8a8; --hl: #f2cf7a; }
+:root[data-theme="dark"]  { --bg: #121212; --fg: #c8c8c8; --muted: #777; --bar: #1d1d1d; --line: #333; --hl: #4a3f12; --accent: #5aa58f; }
+:root[data-font="serif"] #content { font-family: "Noto Serif TC", "Noto Serif CJK TC", "Source Han Serif TC", serif; }
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { overflow-anchor: none; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font-family: system-ui, "Noto Sans TC", "Noto Sans CJK TC", sans-serif;
+  overflow-anchor: none;
+}
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+[hidden] { display: none !important; }
+.small { font-size: 13px; color: var(--muted); }
+.hint { padding: 24px 20px; color: var(--muted); line-height: 1.7; }
+
+.bar {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bar); border-color: var(--line);
+}
+.icon { min-width: 44px; height: 44px; font-size: 20px; border-radius: 8px; }
+.btn { display: inline-block; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); font-size: 15px; cursor: pointer; }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.pill { padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; font-size: 15px; white-space: nowrap; }
+
+/* 書架 */
+#library .bar { position: sticky; top: 0; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+#library h1 { flex: 1; font-size: 20px; margin: 0; }
+.book { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.book .info { flex: 1; min-width: 0; cursor: pointer; }
+.book .title { font-size: 17px; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.book .bar-prog { height: 4px; background: var(--line); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+.book .bar-prog i { display: block; height: 100%; background: var(--accent); }
+.book .del { color: var(--muted); font-size: 14px; padding: 8px; }
+
+/* 閱讀 */
+#topbar {
+  position: fixed; top: 0; left: 0; right: 0; height: var(--top); z-index: 10;
+  padding: 0 4px; border-bottom: 1px solid var(--line);
+}
+#topbar .titles { flex: 1; min-width: 0; }
+.ch-title { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#content {
+  padding: calc(var(--top) + 12px) 18px calc(var(--bottom) + 40vh);
+  font-size: var(--fs); line-height: var(--lh); text-align: justify;
+  max-width: 760px; margin: 0 auto;
+}
+#content p { margin: 0 0 .6em; text-indent: 2em; }
+#content h2 { font-size: 1.25em; margin: 1.2em 0 .8em; text-align: center; }
+#content section + section { border-top: 1px dashed var(--line); padding-top: .6em; }
+#content span.reading { background: var(--hl); border-radius: 3px; }
+
+#player {
+  position: fixed; bottom: 0; left: 0; right: 0; height: var(--bottom); z-index: 10;
+  padding: 0 8px env(safe-area-inset-bottom); border-top: 1px solid var(--line); justify-content: space-between;
+}
+.play { width: 52px; height: 52px; border-radius: 50%; background: var(--accent); color: var(--accent-fg); font-size: 22px; }
+.pop {
+  position: absolute; z-index: 9; padding: 8px 14px; border-radius: 999px;
+  background: var(--accent); color: var(--accent-fg); font-size: 15px; box-shadow: 0 2px 10px rgba(0,0,0,.25);
+}
+
+/* 底部面板 */
+.sheet { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; }
+.sheet-body {
+  width: 100%; max-height: 80vh; overflow-y: auto; background: var(--bg);
+  border-radius: 14px 14px 0 0; padding: 0 16px 24px;
+}
+.sheet-head { position: sticky; top: 0; background: var(--bg); display: flex; align-items: center; justify-content: space-between; padding: 8px 0; font-size: 17px; }
+#tocList { list-style: none; margin: 0; padding: 0; }
+#tocList li { padding: 12px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
+#tocList li.cur { color: var(--accent); font-weight: bold; }
+
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.row.col { flex-direction: column; align-items: stretch; }
+.row small { color: var(--muted); font-size: 12px; }
+.row.check input { width: 22px; height: 22px; }
+.stepper { display: flex; align-items: center; gap: 4px; }
+.stepper button { min-width: 48px; height: 40px; border: 1px solid var(--line); border-radius: 8px; }
+.stepper output { min-width: 44px; text-align: center; }
+.seg { display: flex; gap: 6px; }
+.seg.wrap { flex-wrap: wrap; }
+.seg button { padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; min-width: 52px; }
+.seg button.on { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.voice-row { display: flex; gap: 8px; }
+.voice-row select { flex: 1; min-width: 0; font-size: 15px; padding: 8px; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; }
+
+/* 開車模式：黑底、大按鈕 */
+#car {
+  position: fixed; inset: 0; z-index: 30; background: #000; color: #ddd;
+  display: flex; flex-direction: column; align-items: center; justify-content: space-evenly;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+}
+#car .small { color: #888; font-size: 15px; }
+.car-info { text-align: center; font-size: 22px; line-height: 1.6; }
+.car-play { width: 46vmin; height: 46vmin; border-radius: 50%; background: #1f4d40; color: #fff; font-size: 18vmin; }
+.car-row { display: flex; gap: 12px; width: 100%; max-width: 520px; }
+.car-row button {
+  flex: 1; height: 22vmin; min-height: 90px; border-radius: 16px; background: #1c1c1c;
+  font-size: 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+}
+.car-row small { font-size: 14px; color: #888; }
+.car-exit { padding: 12px 24px; color: #888; border: 1px solid #333; border-radius: 999px; }
+
+#toast {
+  position: fixed; left: 50%; bottom: calc(var(--bottom) + 16px); transform: translateX(-50%); z-index: 40;
+  background: rgba(0,0,0,.8); color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 15px; max-width: 90vw;
+}
