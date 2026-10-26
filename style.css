@@ -50,16 +50,27 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
   padding: calc(var(--top) + 12px) 18px calc(var(--bottom) + 40vh);
   font-size: var(--fs); line-height: var(--lh); text-align: justify;
   max-width: 760px; margin: 0 auto;
+  /* 關掉選取，點文字時 Chrome 才不會跳出搜尋列蓋住播放鍵 */
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
 }
 #content p { margin: 0 0 .6em; text-indent: 2em; }
 #content h2 { font-size: 1.25em; margin: 1.2em 0 .8em; text-align: center; }
 #content section + section { border-top: 1px dashed var(--line); padding-top: .6em; }
 #content span.reading { background: var(--hl); border-radius: 3px; }
 
+/* 播放列：五個等寬格子，螢幕再窄、字再大都不會被擠出畫面 */
 #player {
-  position: fixed; bottom: 0; left: 0; right: 0; height: var(--bottom); z-index: 10;
-  padding: 0 8px env(safe-area-inset-bottom); border-top: 1px solid var(--line); justify-content: space-between;
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 15;
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); justify-items: center;
+  height: calc(var(--bottom) + env(safe-area-inset-bottom));
+  padding: 0 4px env(safe-area-inset-bottom); border-top: 1px solid var(--line);
 }
+.pbtn {
+  width: 100%; height: 56px; font-size: 20px; line-height: 1.1; white-space: nowrap; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.pbtn b { font-size: 17px; }
+.pbtn small { font-size: 11px; color: var(--muted); margin-top: 3px; }
 .play { width: 52px; height: 52px; border-radius: 50%; background: var(--accent); color: var(--accent-fg); font-size: 22px; }
 .pop {
   position: absolute; z-index: 9; padding: 8px 14px; border-radius: 999px;

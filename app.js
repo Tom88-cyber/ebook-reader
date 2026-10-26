@@ -30,7 +30,7 @@ function applySettings() {
   $('#lhOut').textContent = settings.lineHeight.toFixed(1);
   $$('.seg[data-key] button').forEach(b => b.classList.toggle('on', settings[b.parentNode.dataset.key] === b.dataset.v));
   $$('#speedSeg button').forEach(b => b.classList.toggle('on', +b.dataset.v === settings.rate));
-  $('#speedBtn').textContent = settings.rate + 'x';
+  $('#speedBtn b').textContent = settings.rate + 'x';
   $('#carSpeed').firstChild.textContent = settings.rate + 'x';
   $('#keepAlive').checked = settings.keepAlive;
 }

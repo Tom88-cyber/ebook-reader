@@ -2,7 +2,7 @@
 <html lang="zh-Hant-TW" data-theme="light">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#ffffff">
 <title>電子書朗讀</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -38,11 +38,11 @@
   <main id="content"></main>
 
   <footer id="player" class="bar">
-    <button id="prevBtn" class="icon" aria-label="上一段">⏮</button>
+    <button id="speedBtn" class="pbtn" aria-label="語速"><b>1x</b><small>語速</small></button>
+    <button id="prevBtn" class="pbtn" aria-label="上一段">⏮<small>上一段</small></button>
     <button id="playBtn" class="play" aria-label="朗讀">▶</button>
-    <button id="nextBtn" class="icon" aria-label="下一段">⏭</button>
-    <button id="speedBtn" class="pill" aria-label="語速">1x</button>
-    <button id="carBtn" class="pill" aria-label="開車模式">🚗 開車</button>
+    <button id="nextBtn" class="pbtn" aria-label="下一段">⏭<small>下一段</small></button>
+    <button id="carBtn" class="pbtn" aria-label="開車模式">🚗<small>開車</small></button>
   </footer>
 
   <button id="pop" class="pop" hidden>▶ 從這句朗讀</button>
