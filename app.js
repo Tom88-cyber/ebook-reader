@@ -3,6 +3,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 
+const APP_VERSION = 4; // 要和 sw.js 的 CACHE 版本號一致
 const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 const DEFAULTS = { fontSize: 20, lineHeight: 1.8, font: 'sans', theme: 'light', rate: 1, voice: '', keepAlive: true };
 const THEME_COLOR = { light: '#f6f6f6', sepia: '#ebe0c6', dark: '#1d1d1d' };
@@ -248,7 +249,9 @@ async function renderLibrary() {
   }).join('');
   if (navigator.storage && navigator.storage.estimate) {
     const est = await navigator.storage.estimate();
-    $('#storageInfo').textContent = `已使用空間：${fmtSize(est.usage || 0)}`;
+    $('#storageInfo').textContent = `已使用空間：${fmtSize(est.usage || 0)} · 版本 ${APP_VERSION}`;
+  } else {
+    $('#storageInfo').textContent = `版本 ${APP_VERSION}`;
   }
 }
 
@@ -828,5 +831,18 @@ applySettings();
 renderSleep();
 renderLibrary();
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-  navigator.serviceWorker.register('sw.js');
+  // 新版接手後自動重新載入；第一次安裝不用，朗讀中也先不打斷
+  const hadController = !!navigator.serviceWorker.controller;
+  let pendingReload = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) return;
+    if (tts.playing) { pendingReload = true; return; }
+    savePosNow();
+    location.reload();
+  });
+  // 等朗讀停下來再套用新版
+  setInterval(() => {
+    if (pendingReload && !tts.playing) { savePosNow(); location.reload(); }
+  }, 5000);
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' });
 }

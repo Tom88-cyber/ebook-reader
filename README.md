@@ -32,7 +32,8 @@ python -m http.server 8765
   $sha = git subtree split --prefix=ebook-reader
   git push https://github.com/Tom88-cyber/ebook-reader.git "${sha}:refs/heads/main"
   ```
-- 記得先把 `sw.js` 的版本號加一，手機才會換成新版。
+- 記得先把 `sw.js` 的 `CACHE` 版本號和 `app.js` 的 `APP_VERSION` 一起加一，手機才會換成新版。書架最下面會顯示目前版本。
+- 手機沒更新時，**不要卸載 App 或清除網站資料**（書和進度會一起被刪掉），把 App 關掉再打開即可。
 
 ## 已知限制
 - 朗讀用的是手機內建語音（Android 是「Google 文字轉語音」）。聲音不夠中文時，到手機「設定 → 協助工具 → 文字轉語音」下載中文語音。
