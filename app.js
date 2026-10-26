@@ -3,7 +3,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 
-const APP_VERSION = 4; // 要和 sw.js 的 CACHE 版本號一致
+const APP_VERSION = 5; // 要和 sw.js 的 CACHE 版本號一致
 const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 const DEFAULTS = { fontSize: 20, lineHeight: 1.8, font: 'sans', theme: 'light', rate: 1, voice: '', keepAlive: true };
 const THEME_COLOR = { light: '#f6f6f6', sepia: '#ebe0c6', dark: '#1d1d1d' };
@@ -605,11 +605,19 @@ function setRate(r) {
   applySettings();
   if (tts.playing) speakFrom(tts.idx);
 }
-function cycleRate() {
-  const k = SPEEDS.indexOf(settings.rate);
-  setRate(SPEEDS[(k + 1) % SPEEDS.length]);
-  toast(`語速 ${settings.rate}x`, 1200);
+// 語速選單：開車模式用大按鈕版
+const speedMenu = $('#speedMenu');
+function openSpeedMenu() {
+  speedMenu.classList.toggle('car', carMode);
+  speedMenu.querySelector('.grid').innerHTML = SPEEDS.map(s =>
+    `<button data-v="${s}" class="${s === settings.rate ? 'on' : ''}">${s}x</button>`).join('');
+  speedMenu.hidden = false;
 }
+speedMenu.addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (b) setRate(+b.dataset.v);
+  if (b || e.target === speedMenu) speedMenu.hidden = true;
+});
 
 // ---------- 背景播放輔助：放一段無聲音訊，讓瀏覽器把這頁當成正在播放媒體 ----------
 let silent = null;
@@ -806,18 +814,21 @@ $('#setBtn').addEventListener('click', () => openSheet('#setSheet'));
 $('#playBtn').addEventListener('click', togglePlay);
 $('#prevBtn').addEventListener('click', () => jumpPara(-1));
 $('#nextBtn').addEventListener('click', () => jumpPara(1));
-$('#speedBtn').addEventListener('click', cycleRate);
+$('#speedBtn').addEventListener('click', openSpeedMenu);
 $('#carBtn').addEventListener('click', enterCar);
 $('#carPlay').addEventListener('click', togglePlay);
 $('#carPrev').addEventListener('click', () => jumpPara(-1));
 $('#carNext').addEventListener('click', () => jumpPara(1));
-$('#carSpeed').addEventListener('click', cycleRate);
+$('#carSpeed').addEventListener('click', openSpeedMenu);
 $('#carExit').addEventListener('click', exitCar);
 
 // Android 返回鍵：先關面板／開車模式，再回書架
 window.addEventListener('popstate', () => {
   if (!book) return;
-  if (anySheetOpen() || carMode) {
+  if (!speedMenu.hidden) {
+    speedMenu.hidden = true;
+    history.pushState({ reader: true }, '');
+  } else if (anySheetOpen() || carMode) {
     closeSheets();
     if (carMode) exitCar();
     history.pushState({ reader: true }, '');

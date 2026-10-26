@@ -9,11 +9,11 @@
 :root[data-font="serif"] #content { font-family: "Noto Serif TC", "Noto Serif CJK TC", "Source Han Serif TC", serif; }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html { overflow-anchor: none; }
+html { overflow-anchor: none; overflow-x: hidden; }
 body {
   margin: 0; background: var(--bg); color: var(--fg);
   font-family: system-ui, "Noto Sans TC", "Noto Sans CJK TC", sans-serif;
-  overflow-anchor: none;
+  overflow-anchor: none; overflow-x: hidden;
 }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 [hidden] { display: none !important; }
@@ -52,6 +52,8 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
   max-width: 760px; margin: 0 auto;
   /* 關掉選取，點文字時 Chrome 才不會跳出搜尋列蓋住播放鍵 */
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  /* 「————」、網址這類不能斷行的長字串會把整頁撐寬，播放列跟著被拉出畫面 */
+  overflow-wrap: anywhere; word-break: break-all;
 }
 #content p { margin: 0 0 .6em; text-indent: 2em; }
 #content h2 { font-size: 1.25em; margin: 1.2em 0 .8em; text-align: center; }
@@ -118,6 +120,19 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 }
 .car-row small { font-size: 14px; color: #888; }
 .car-exit { padding: 12px 24px; color: #888; border: 1px solid #333; border-radius: 999px; }
+
+/* 語速選單：直接點要的速度 */
+#speedMenu { position: fixed; inset: 0; z-index: 35; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; }
+#speedMenu .menu-body {
+  width: 100%; background: var(--bg); border-radius: 14px 14px 0 0;
+  padding: 12px 12px calc(16px + env(safe-area-inset-bottom));
+}
+#speedMenu .menu-title { text-align: center; color: var(--muted); font-size: 14px; margin-bottom: 10px; }
+#speedMenu .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+#speedMenu .grid button { height: 56px; font-size: 19px; border: 1px solid var(--line); border-radius: 10px; }
+#speedMenu .grid button.on { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+#speedMenu.car .menu-body { background: #111; color: #ddd; }
+#speedMenu.car .grid button { height: 84px; font-size: 26px; border-color: #333; }
 
 #toast {
   position: fixed; left: 50%; bottom: calc(var(--bottom) + 16px); transform: translateX(-50%); z-index: 40;

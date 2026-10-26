@@ -1,5 +1,5 @@
 // 離線快取：程式更新後要把版本號加一（app.js 的 APP_VERSION 也要一起改），手機才會抓到新版
-const CACHE = 'ebook-reader-v4';
+const CACHE = 'ebook-reader-v5';
 const FILES = ['./', './index.html', './style.css', './app.js', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
