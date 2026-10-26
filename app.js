@@ -89,6 +89,77 @@ function decodeText(buf) {
   return new TextDecoder(best).decode(b);
 }
 
+// ---------- Word（.docx）：本身是 zip 壓縮檔，文字在 word/document.xml ----------
+const HEADING_MARK = '\u0001'; // 標在 Word 標題段落開頭，parseBook 看到就當成章節
+
+async function unzipEntry(buf, name) {
+  const v = new DataView(buf), u8 = new Uint8Array(buf);
+  let end = -1;
+  for (let i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 65557); i--) {
+    if (v.getUint32(i, true) === 0x06054b50) { end = i; break; }
+  }
+  if (end < 0) return null;
+  const count = v.getUint16(end + 10, true);
+  let p = v.getUint32(end + 16, true);
+  for (let k = 0; k < count; k++) {
+    if (v.getUint32(p, true) !== 0x02014b50) return null;
+    const method = v.getUint16(p + 10, true), size = v.getUint32(p + 20, true);
+    const nl = v.getUint16(p + 28, true), xl = v.getUint16(p + 30, true), cl = v.getUint16(p + 32, true);
+    const off = v.getUint32(p + 42, true);
+    if (new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nl)) === name) {
+      const start = off + 30 + v.getUint16(off + 26, true) + v.getUint16(off + 28, true);
+      const data = u8.subarray(start, start + size);
+      if (method === 0) return data;
+      if (method !== 8) return null;
+      const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    }
+    p += 46 + nl + xl + cl;
+  }
+  return null;
+}
+
+async function docxToText(buf) {
+  const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const parse = b => new DOMParser().parseFromString(new TextDecoder().decode(b), 'application/xml');
+  const doc = await unzipEntry(buf, 'word/document.xml');
+  if (!doc) throw new Error('不是有效的 .docx 檔案');
+
+  // 樣式名稱是「heading 1」「Title」的段落算標題（中文版 Word 的樣式代號不一定是英文）
+  const headingIds = new Set();
+  const styles = await unzipEntry(buf, 'word/styles.xml');
+  if (styles) {
+    for (const s of parse(styles).getElementsByTagNameNS(W, 'style')) {
+      const n = s.getElementsByTagNameNS(W, 'name')[0];
+      if (n && /^(heading \d|title)$/i.test(n.getAttributeNS(W, 'val'))) headingIds.add(s.getAttributeNS(W, 'styleId'));
+    }
+  }
+
+  const inFallback = el => { for (let a = el.parentElement; a; a = a.parentElement) if (a.localName === 'Fallback') return true; return false; };
+  const lines = [];
+  for (const p of parse(doc).getElementsByTagNameNS(W, 'p')) {
+    if (inFallback(p)) continue; // 文字方塊在 Fallback 裡會再存一份，略過避免重複
+    let text = '', h = false;
+    const walk = el => {
+      for (const c of el.children) {
+        const ln = c.localName;
+        if (ln === 'p' || ln === 'Fallback') continue;
+        if (ln === 'pPr') {
+          const ps = c.getElementsByTagNameNS(W, 'pStyle')[0];
+          const ol = c.getElementsByTagNameNS(W, 'outlineLvl')[0];
+          if ((ps && headingIds.has(ps.getAttributeNS(W, 'val'))) || (ol && +ol.getAttributeNS(W, 'val') < 9)) h = true;
+        } else if (ln === 't') text += c.textContent;
+        else if (ln === 'tab') text += ' ';
+        else if (ln === 'br' || ln === 'cr') text += '\n';
+        else walk(c);
+      }
+    };
+    walk(p);
+    for (const line of text.split('\n')) lines.push(h && line.trim() ? HEADING_MARK + line : line);
+  }
+  return lines.join('\n');
+}
+
 // ---------- 切段、切句、找章節 ----------
 const CHAPTER_RE = /^(第[\d０-９零〇一二三四五六七八九十百千萬万两兩]+[章回節节卷集部篇話话]|序章|序言|序|楔子|引子|前言|尾聲|尾声|後記|后记|番外|終章|终章|chapter\s*\d+)/i;
 const SENT_RE = /[^。！？!?；;…]*[。！？!?；;…]+[」』”’"）)】]*|[^。！？!?；;…]+$/g;
@@ -112,10 +183,13 @@ function splitSentences(line) {
 
 function parseBook(text) {
   const sents = [], paras = [], chapters = [];
-  for (const raw of text.replace(/\r\n?/g, '\n').split('\n')) {
+  const useMarks = text.includes(HEADING_MARK); // Word 有設標題樣式，就只用樣式分章，不猜「第X章」
+  for (let raw of text.replace(/\r\n?/g, '\n').split('\n')) {
+    const marked = raw[0] === HEADING_MARK;
+    if (marked) raw = raw.slice(1);
     const line = raw.replace(/^[\s　﻿]+|[\s　]+$/g, '');
     if (!line) continue;
-    const h = line.length <= 40 && CHAPTER_RE.test(line);
+    const h = useMarks ? marked : (line.length <= 40 && CHAPTER_RE.test(line));
     if (h) chapters.push({ title: line, p: paras.length, s: sents.length });
     const s0 = sents.length;
     for (const s of splitSentences(line)) sents.push(s);
@@ -196,19 +270,25 @@ $('#bookList').addEventListener('click', async e => {
 $('#fileInput').addEventListener('change', async e => {
   const files = [...e.target.files];
   e.target.value = '';
+  let ok = 0;
+  const fails = [];
   for (const f of files) {
+    if (/\.doc$/i.test(f.name)) { fails.push(`${f.name}（舊版 Word 格式，請先另存成 .docx 或 .txt）`); continue; }
     toast(`匯入中：${f.name}`, 10000);
     try {
-      const text = decodeText(await f.arrayBuffer());
+      const buf = await f.arrayBuffer();
+      const text = /\.docx$/i.test(f.name) ? await docxToText(buf) : decodeText(buf);
       const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       await DB.put('books', { id, text });
-      await DB.put('meta', { id, title: f.name.replace(/\.txt$/i, ''), size: f.size, added: Date.now(), lastRead: 0, pos: 0, total: 0 });
+      await DB.put('meta', { id, title: f.name.replace(/\.(txt|docx)$/i, ''), size: f.size, added: Date.now(), lastRead: 0, pos: 0, total: 0 });
+      ok++;
     } catch (err) {
-      toast(`匯入失敗：${f.name}`);
+      fails.push(f.name);
       console.error(err);
     }
   }
-  toast(`已匯入 ${files.length} 本`);
+  if (fails.length) alert(`已匯入 ${ok} 本。\n以下檔案無法匯入：\n${fails.join('\n')}`);
+  else toast(`已匯入 ${ok} 本`);
   renderLibrary();
   // 請瀏覽器不要在空間不足時自動清掉書
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
