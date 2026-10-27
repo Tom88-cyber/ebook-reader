@@ -19,7 +19,7 @@
     <input id="fileInput" type="file" accept=".txt,.docx,.doc,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" multiple hidden>
   </header>
   <div id="bookList"></div>
-  <p id="emptyHint" class="hint" hidden>還沒有書。按右上角「＋ 匯入」，從手機裡選擇小說檔案（TXT 或 Word 的 .docx）。</p>
+  <p id="emptyHint" class="hint" hidden>還沒有書。按右上角「＋ 匯入」，從手機裡選擇小說檔案（TXT 或 Word 的 .docx）。<br>可以一次選多個檔：長按第一個檔，再點其他檔。用 novel-prep 切好的分冊（書名_0001-0100）會自動合成一套。</p>
   <p id="storageInfo" class="hint small"></p>
 </div>
 
@@ -51,7 +51,8 @@
 <!-- 目錄 -->
 <div id="tocSheet" class="sheet" hidden>
   <div class="sheet-body">
-    <div class="sheet-head"><b>目錄</b><button class="icon close">✕</button></div>
+    <div class="sheet-head"><b id="tocTitle">目錄</b><button class="icon close">✕</button></div>
+    <div id="volNav" class="vol-nav" hidden><button id="prevVol" class="btn">‹ 上一冊</button><button id="nextVol" class="btn">下一冊 ›</button></div>
     <ol id="tocList"></ol>
   </div>
 </div>

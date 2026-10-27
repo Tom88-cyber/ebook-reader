@@ -3,7 +3,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 
-const APP_VERSION = 5; // 要和 sw.js 的 CACHE 版本號一致
+const APP_VERSION = 6; // 要和 sw.js 的 CACHE 版本號一致
 const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 const DEFAULTS = { fontSize: 20, lineHeight: 1.8, font: 'sans', theme: 'light', rate: 1, voice: '', keepAlive: true };
 const THEME_COLOR = { light: '#f6f6f6', sepia: '#ebe0c6', dark: '#1d1d1d' };
@@ -235,18 +235,76 @@ function fmtSize(n) {
   return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
 }
 
+// ---------- 分冊：novel-prep 切出來的「書名_0001-0100」視為同一套 ----------
+const VOL_RE = /^(.+)_(\d+)-(\d+)$/;
+function volOf(m) {
+  const r = VOL_RE.exec(m.title);
+  return r && { name: r[1], from: +r[2], to: +r[3] };
+}
+const bookName = m => { const v = volOf(m); return v ? `${v.name}（第 ${v.from}–${v.to} 章）` : m.title; };
+const readFrac = m => m.total ? (m.pos + 1) / m.total : 0;
+
+// 同一套的所有分冊，依章節排好
+async function volumesOf(name) {
+  return (await DB.all('meta')).filter(m => { const v = volOf(m); return v && v.name === name; })
+    .sort((a, b) => volOf(a).from - volOf(b).from);
+}
+// 目前這冊的上一冊（dir = -1）或下一冊（dir = 1）
+async function siblingVol(dir) {
+  const v = book && volOf(book);
+  if (!v) return null;
+  const ms = await volumesOf(v.name);
+  return ms[ms.findIndex(m => m.id === book.id) + dir] || null;
+}
+
 // ---------- 書架 ----------
+const openSeries = new Set(); // 書架上展開分冊清單的套書
+
+function bookCard(m) {
+  const pct = Math.floor(readFrac(m) * 100);
+  return `<div class="book" data-id="${m.id}">
+    <div class="info"><div class="title">${esc(m.title)}</div>
+      <div class="small">已讀 ${pct}% · ${fmtSize(m.size)}</div>
+      <div class="bar-prog"><i style="width:${pct}%"></i></div></div>
+    <button class="del">刪除</button></div>`;
+}
+
+function seriesCard(name, ms) {
+  // 最近讀的那冊；都還沒讀就從第一冊開始
+  const read = ms.filter(m => m.lastRead);
+  const cur = read.length ? read.reduce((a, b) => (b.lastRead > a.lastRead ? b : a)) : ms[0];
+  const size = ms.reduce((s, m) => s + m.size, 0);
+  const pct = Math.floor(ms.reduce((s, m) => s + readFrac(m) * m.size, 0) / size * 100);
+  const v = volOf(cur), open = openSeries.has(name);
+  let html = `<div class="book" data-id="${cur.id}" data-series="${esc(name)}">
+    <div class="info"><div class="title">${esc(name)}</div>
+      <div class="small">共 ${ms.length} 冊 · 目前：第 ${v.from}–${v.to} 章 · 全書 ${pct}%</div>
+      <div class="bar-prog"><i style="width:${pct}%"></i></div></div>
+    <button class="vols">${open ? '收起' : '分冊'}</button>
+    <button class="del">刪除</button></div>`;
+  if (open) {
+    html += '<div class="vol-list">' + ms.map(m => {
+      const w = volOf(m), f = readFrac(m);
+      const state = f >= 1 ? '讀完' : m.pos > 0 ? `讀到 ${Math.floor(f * 100)}%` : '未讀';
+      return `<div class="vol${m === cur ? ' cur' : ''}" data-id="${m.id}"><span>第 ${w.from}–${w.to} 章</span><span class="small">${state}</span></div>`;
+    }).join('') + '</div>';
+  }
+  return html;
+}
+
 async function renderLibrary() {
-  const list = (await DB.all('meta')).sort((a, b) => (b.lastRead || b.added) - (a.lastRead || a.added));
-  $('#emptyHint').hidden = list.length > 0;
-  $('#bookList').innerHTML = list.map(m => {
-    const pct = m.total ? Math.floor((m.pos + 1) / m.total * 100) : 0;
-    return `<div class="book" data-id="${m.id}">
-      <div class="info"><div class="title">${esc(m.title)}</div>
-        <div class="small">已讀 ${pct}% · ${fmtSize(m.size)}</div>
-        <div class="bar-prog"><i style="width:${pct}%"></i></div></div>
-      <button class="del">刪除</button></div>`;
-  }).join('');
+  const groups = new Map(); // 單本：b:id → [meta]；套書：s:書名 → [分冊…]
+  for (const m of await DB.all('meta')) {
+    const v = volOf(m);
+    const key = v ? 's:' + v.name : 'b:' + m.id;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(m);
+  }
+  const items = [...groups].map(([key, ms]) => ({ key, ms, t: Math.max(...ms.map(m => m.lastRead || m.added)) }))
+    .sort((a, b) => b.t - a.t);
+  $('#emptyHint').hidden = items.length > 0;
+  $('#bookList').innerHTML = items.map(({ key, ms }) => key[0] === 'b' ? bookCard(ms[0])
+    : seriesCard(key.slice(2), ms.sort((a, b) => volOf(a).from - volOf(b).from))).join('');
   if (navigator.storage && navigator.storage.estimate) {
     const est = await navigator.storage.estimate();
     $('#storageInfo').textContent = `已使用空間：${fmtSize(est.usage || 0)} · 版本 ${APP_VERSION}`;
@@ -256,17 +314,26 @@ async function renderLibrary() {
 }
 
 $('#bookList').addEventListener('click', async e => {
+  const vol = e.target.closest('.vol');
+  if (vol) { openBook(vol.dataset.id); return; }
   const item = e.target.closest('.book');
   if (!item) return;
-  const id = item.dataset.id;
-  if (e.target.closest('.del')) {
-    const m = await DB.get('meta', id);
-    if (!confirm(`確定要刪除「${m.title}」？`)) return;
-    await DB.del('books', id);
-    await DB.del('meta', id);
+  const series = item.dataset.series;
+  if (e.target.closest('.vols')) {
+    if (openSeries.has(series)) openSeries.delete(series);
+    else openSeries.add(series);
+    renderLibrary();
+  } else if (e.target.closest('.del')) {
+    const ms = series ? await volumesOf(series) : [await DB.get('meta', item.dataset.id)];
+    const what = series ? `「${series}」全部 ${ms.length} 冊` : `「${ms[0].title}」`;
+    if (!confirm(`確定要刪除${what}？`)) return;
+    for (const m of ms) {
+      await DB.del('books', m.id);
+      await DB.del('meta', m.id);
+    }
     renderLibrary();
   } else {
-    openBook(id);
+    openBook(item.dataset.id);
   }
 });
 
@@ -274,24 +341,29 @@ $('#fileInput').addEventListener('change', async e => {
   const files = [...e.target.files];
   e.target.value = '';
   let ok = 0;
-  const fails = [];
+  const fails = [], skipped = [];
+  const have = new Set((await DB.all('meta')).map(m => m.title));
   for (const f of files) {
     if (/\.doc$/i.test(f.name)) { fails.push(`${f.name}（舊版 Word 格式，請先另存成 .docx 或 .txt）`); continue; }
-    toast(`匯入中：${f.name}`, 10000);
+    const title = f.name.replace(/\.(txt|docx)$/i, '');
+    if (have.has(title)) { skipped.push(title); continue; } // 書架上已經有同名的書
+    have.add(title);
+    toast(`匯入中（${files.indexOf(f) + 1}/${files.length}）：${f.name}`, 10000);
     try {
       const buf = await f.arrayBuffer();
       const text = /\.docx$/i.test(f.name) ? await docxToText(buf) : decodeText(buf);
       const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       await DB.put('books', { id, text });
-      await DB.put('meta', { id, title: f.name.replace(/\.(txt|docx)$/i, ''), size: f.size, added: Date.now(), lastRead: 0, pos: 0, total: 0 });
+      await DB.put('meta', { id, title, size: f.size, added: Date.now(), lastRead: 0, pos: 0, total: 0 });
       ok++;
     } catch (err) {
       fails.push(f.name);
       console.error(err);
     }
   }
-  if (fails.length) alert(`已匯入 ${ok} 本。\n以下檔案無法匯入：\n${fails.join('\n')}`);
-  else toast(`已匯入 ${ok} 本`);
+  const skipMsg = skipped.length ? `，${skipped.length} 本已在書架上（略過）` : '';
+  if (fails.length) alert(`已匯入 ${ok} 本${skipMsg}。\n以下檔案無法匯入：\n${fails.join('\n')}`);
+  else toast(`已匯入 ${ok} 本${skipMsg}`, 4000);
   renderLibrary();
   // 請瀏覽器不要在空間不足時自動清掉書
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
@@ -302,19 +374,35 @@ let book = null;   // { ...meta, sents, paras, chapters }
 let lo = 0, hi = 0; // 目前畫面上的第一章與最後一章
 const content = $('#content');
 
-async function openBook(id) {
+// pos 有給就從那句開始（換冊時用 0），沒給就從上次讀到的地方
+async function openBook(id, pos) {
   const meta = await DB.get('meta', id);
   const rec = await DB.get('books', id);
   if (!meta || !rec) { toast('找不到這本書'); return; }
   book = Object.assign(meta, parseBook(rec.text));
   book.total = book.sents.length;
+  if (pos != null) book.pos = pos;
   book.pos = Math.min(book.pos || 0, book.total - 1);
+  // 換冊時已經在閱讀畫面，不再多推一筆返回紀錄
+  if ($('#reader').hidden) history.pushState({ reader: true }, '');
   $('#library').hidden = true;
   $('#reader').hidden = false;
-  history.pushState({ reader: true }, '');
+  lastHeaderCh = -1;
+  if (carMode) $('#carBook').textContent = bookName(book);
   renderToc();
   openAt(book.pos);
   savePos();
+}
+
+// 目錄的「上一冊／下一冊」
+async function switchVol(dir) {
+  const m = await siblingVol(dir);
+  if (!m) return;
+  const playing = tts.playing;
+  if (playing) pauseReading();
+  else savePosNow();
+  await openBook(m.id);
+  if (playing) speakFrom(book.pos);
 }
 
 function closeReader() {
@@ -419,7 +507,7 @@ function updateHeader(i) {
     updateMediaMeta();
   }
   const pct = ((i + 1) / book.total * 100).toFixed(1) + '%';
-  $('#progress').textContent = `${book.title} · ${pct}`;
+  $('#progress').textContent = `${bookName(book)} · ${pct}`;
   $('#carProg').textContent = `全書 ${pct}`;
 }
 
@@ -489,7 +577,7 @@ function loadVoices() {
   const cur = currentVoice();
   $('#voiceSel').innerHTML = list.map(v =>
     `<option value="${esc(v.voiceURI)}"${cur && cur.voiceURI === v.voiceURI ? ' selected' : ''}>${esc(v.name)}（${esc(v.lang)}）</option>`
-  ).join('') || '<option>找不到語音，請到手機設定安裝「Google 文字轉語音」</option>';
+  ).join('') || '<option value="">（這個瀏覽器沒有提供聲音選擇，會用手機預設的語音）</option>';
 }
 function currentVoice() {
   return voices.find(v => v.voiceURI === settings.voice)
@@ -526,7 +614,7 @@ function speakFrom(i) {
 
 function speakCurrent(my) {
   if (my !== tts.token || !tts.playing || !book) return;
-  if (tts.idx >= book.total) { stopReading(); toast('全書讀完了'); return; }
+  if (tts.idx >= book.total) { nextVolume(my); return; }
   if (sleepDue()) return;
   const text = book.sents[tts.idx];
   markReading(tts.idx, true);
@@ -545,6 +633,24 @@ function speakCurrent(my) {
   };
   tts.u = u; // 留住參考，避免被回收後 onend 不觸發
   speechSynthesis.speak(u);
+}
+
+// 這冊念完：同一套有下一冊就自動接著念（開車時不用動手）
+async function nextVolume(my) {
+  if (sleep.mode === 'chapter') { // 這冊最後一章也念完了
+    setSleep('off');
+    pauseReading();
+    toast('睡眠定時到，已停止朗讀', 5000);
+    return;
+  }
+  savePosNow();
+  const m = await siblingVol(1);
+  if (my !== tts.token) return;
+  if (!m) { stopReading(); toast('全書讀完了'); return; }
+  await openBook(m.id, 0);
+  if (my !== tts.token) return;
+  toast(`接著讀：${bookName(book)}`, 4000);
+  speakFrom(0);
 }
 
 function pauseReading() {
@@ -646,7 +752,7 @@ function updateMediaMeta() {
   if (!('mediaSession' in navigator) || !book) return;
   navigator.mediaSession.metadata = new MediaMetadata({
     title: book.chapters[chapterOf(tts.playing ? tts.idx : book.pos)].title,
-    artist: book.title,
+    artist: bookName(book),
     artwork: [{ src: 'icon-512.png', sizes: '512x512', type: 'image/png' }],
   });
 }
@@ -720,9 +826,21 @@ function renderSleep() {
 }
 
 // ---------- 目錄 ----------
-function renderToc() {
+async function renderToc() {
   $('#tocList').innerHTML = book.chapters.map((c, k) => `<li data-k="${k}">${esc(c.title)}</li>`).join('');
+  const v = volOf(book);
+  $('#tocTitle').textContent = v ? `目錄（第 ${v.from}–${v.to} 章）` : '目錄';
+  $('#volNav').hidden = !v;
+  if (v) {
+    const id = book.id;
+    const [prev, next] = await Promise.all([siblingVol(-1), siblingVol(1)]);
+    if (!book || book.id !== id) return;
+    $('#prevVol').disabled = !prev;
+    $('#nextVol').disabled = !next;
+  }
 }
+$('#prevVol').addEventListener('click', () => { closeSheets(); switchVol(-1); });
+$('#nextVol').addEventListener('click', () => { closeSheets(); switchVol(1); });
 $('#tocList').addEventListener('click', e => {
   const li = e.target.closest('li');
   if (!li) return;
@@ -794,7 +912,7 @@ $('#keepAlive').addEventListener('change', e => {
 function enterCar() {
   carMode = true;
   $('#car').hidden = false;
-  $('#carBook').textContent = book.title;
+  $('#carBook').textContent = bookName(book);
   updateHeader(tts.playing ? tts.idx : book.pos);
   updateWakeLock();
   if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
